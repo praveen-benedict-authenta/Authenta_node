@@ -78,7 +78,7 @@ export interface FaceIntelligenceParameters {
 }
 
 export interface CreateJobRequest {
-  /** Task type ID for your deployment. This SDK does not ship a list of IDs. */
+  /** Task type ID. Get it from a model code with `client.resolveModel('AC-1')`. */
   taskTypeId: string | number | bigint;
   /** Between one and three inputs, one per slot defined by the task type. */
   inputs: InputUploadSpec[];

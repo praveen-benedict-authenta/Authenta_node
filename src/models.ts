@@ -81,7 +81,8 @@ export function normalizeModelCode(model: string): string {
 
 /** The built-in spec for a model code, or `undefined` for custom codes. */
 export function getModelSpec(model: string): ModelSpec | undefined {
-  return (MODEL_SPECS as Record<string, ModelSpec>)[normalizeModelCode(model)];
+  const code = normalizeModelCode(model);
+  return Object.hasOwn(MODEL_SPECS, code) ? (MODEL_SPECS as Record<string, ModelSpec>)[code] : undefined;
 }
 
 /** Builds the effective model table: defaults plus overrides, keyed by upper-cased code. */
@@ -94,7 +95,7 @@ export function buildModelTable(overrides: Record<string, string | number> = {})
 /** Converts a model code to its task type ID, or throws `ValidationError` listing the valid codes. */
 export function resolveModel(model: ModelCode, table: Record<string, string> = buildModelTable()): string {
   const key = typeof model === 'string' ? normalizeModelCode(model) : '';
-  const id = table[key];
+  const id = Object.hasOwn(table, key) ? table[key] : undefined;
   if (id === undefined) {
     throw new ValidationError(`Unknown model "${String(model)}". Valid models: ${Object.keys(table).join(', ')}`, {
       code: 'UNKNOWN_MODEL',

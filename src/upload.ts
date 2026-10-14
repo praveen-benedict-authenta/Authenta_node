@@ -7,6 +7,7 @@
 
 import { createReadStream, promises as fsp } from 'node:fs';
 import { basename } from 'node:path';
+import { Readable } from 'node:stream';
 
 import { AuthentaError, UploadError, UploadUrlExpiredError, ValidationError } from './errors';
 import { abortReason, throwIfAborted, withTimeout } from './signals';
@@ -47,12 +48,12 @@ const MAX_ERROR_BODY_LENGTH = 500;
 /** Reads the size of a source without loading file contents into memory. */
 export async function resolveSource(source: UploadSource): Promise<ResolvedSource> {
   if (typeof source === 'string') {
-    let stat;
-    try {
-      stat = await fsp.stat(source);
-    } catch (error) {
-      throw new ValidationError(`Cannot read upload source file: ${(error as Error).message}`, { code: 'INVALID_SOURCE', cause: error });
-    }
+    const stat = await fsp.stat(source).catch((error: unknown) => {
+      throw new ValidationError(`Cannot read upload source file: ${error instanceof Error ? error.message : String(error)}`, {
+        code: 'INVALID_SOURCE',
+        cause: error,
+      });
+    });
     if (!stat.isFile()) throw new ValidationError('Upload source path is not a regular file', { code: 'INVALID_SOURCE' });
     return { size: stat.size, fileName: basename(source), createBody: () => createReadStream(source) };
   }
@@ -109,13 +110,14 @@ export class UploadsResource {
     }
 
     const timed = withTimeout(options.timeoutMs ?? this.defaultTimeoutMs, options.signal);
+    const body = resolved.createBody();
     let status: number;
     let text: string;
     try {
       const init = {
         method: 'PUT',
         headers: { 'Content-Type': options.contentType, 'Content-Length': String(resolved.size) },
-        body: resolved.createBody(),
+        body,
         signal: timed.signal,
         duplex: 'half',
       };
@@ -133,17 +135,19 @@ export class UploadsResource {
       });
     } finally {
       timed.dispose();
+      // Close the file if the request ended before reading all of it (error, timeout or abort).
+      if (body instanceof Readable && !body.destroyed) body.destroy();
     }
 
     if (status >= 200 && status < 300) return { status, sizeBytes: resolved.size };
 
-    const body = text.length > MAX_ERROR_BODY_LENGTH ? `${text.slice(0, MAX_ERROR_BODY_LENGTH)}…` : text;
+    const snippet = text.length > MAX_ERROR_BODY_LENGTH ? `${text.slice(0, MAX_ERROR_BODY_LENGTH)}…` : text;
     const code = storageErrorCode(text);
     const expired = status === 410 || (status === 403 && EXPIRED_PATTERNS.some(pattern => pattern.test(text)));
     const ErrorClass = expired ? UploadUrlExpiredError : UploadError;
     throw new ErrorClass(`Upload rejected by storage with HTTP ${status}${code ? ` (${code})` : ''}`, {
       status,
-      body,
+      body: snippet,
       code: expired ? 'UPLOAD_URL_EXPIRED' : (code ?? 'UPLOAD_REJECTED'),
       ...slotOptions,
     });

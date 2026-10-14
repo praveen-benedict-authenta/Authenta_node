@@ -14,8 +14,9 @@ export function normalizeId(value: unknown, label: string): string {
   else if (typeof value === 'bigint') text = value.toString();
   else throw new ValidationError(`${label} must be a digit string, safe integer or bigint`, { code: 'INVALID_ID' });
 
-  if (!/^\d{1,19}$/.test(text) || BigInt(text) > MAX_BIGINT || BigInt(text) < 1n) {
+  const numeric = /^\d{1,19}$/.test(text) ? BigInt(text) : 0n;
+  if (numeric < 1n || numeric > MAX_BIGINT) {
     throw new ValidationError(`${label} must be a positive integer ID, received "${text}"`, { code: 'INVALID_ID' });
   }
-  return text;
+  return numeric.toString();
 }

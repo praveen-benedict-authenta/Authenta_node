@@ -1,8 +1,8 @@
 /**
- * The same flow as analyze(), one call at a time, plus listing recent jobs.
+ * The same flow as process(), one step at a time, plus listing recent jobs.
  *
- *   AUTHENTA_API_KEY=api_... AUTHENTA_TASK_TYPE_ID=<id> \
- *     npx ts-node examples/low-level.ts ./contract.pdf application/pdf 4
+ *   AUTHENTA_API_KEY=api_... npx ts-node examples/low-level.ts ./photo.jpg AC-1 image/jpeg
+ *   AUTHENTA_API_KEY=api_... npx ts-node examples/low-level.ts ./contract.pdf PDF-1 application/pdf 4
  */
 
 import { stat } from 'node:fs/promises';
@@ -11,11 +11,10 @@ import { basename } from 'node:path';
 import { AuthentaClient } from '../src';
 
 async function main(): Promise<void> {
-  const [path, contentType, pageCount] = process.argv.slice(2);
+  const [path, model, contentType, pageCount] = process.argv.slice(2);
   const apiKey = process.env.AUTHENTA_API_KEY;
-  const taskTypeId = process.env.AUTHENTA_TASK_TYPE_ID;
-  if (!path || !contentType || !apiKey || !taskTypeId) {
-    console.error('Usage: AUTHENTA_API_KEY=... AUTHENTA_TASK_TYPE_ID=... ts-node examples/low-level.ts <file> <contentType> [pageCount]');
+  if (!path || !model || !contentType || !apiKey) {
+    console.error('Usage: AUTHENTA_API_KEY=... ts-node examples/low-level.ts <file> <model> <contentType> [pageCount]');
     process.exit(1);
   }
   const client = new AuthentaClient({ apiKey, ...(process.env.AUTHENTA_BASE_URL ? { baseUrl: process.env.AUTHENTA_BASE_URL } : {}) });
@@ -23,7 +22,7 @@ async function main(): Promise<void> {
 
   // 1. Create the job. This uses credits and is never retried automatically.
   const created = await client.jobs.create({
-    taskTypeId,
+    taskTypeId: client.resolveModel(model),
     inputs: [
       {
         slotName: 'original',
@@ -38,7 +37,7 @@ async function main(): Promise<void> {
   const target = created.inputs[0];
   if (!target) throw new Error('No upload target returned');
 
-  // 2. Upload straight to storage. Upload URLs can expire within seconds for small files.
+  // 2. Upload the file. Upload links are short-lived, so this runs immediately.
   try {
     await client.uploads.put(target, path, { contentType, sizeBytes: size });
   } catch (error) {
@@ -46,10 +45,10 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  // 3. Finalize, then 4. wait.
+  // 3. Start processing, then 4. wait for the result.
   await client.jobs.finalize(jobId);
   const job = await client.jobs.waitForCompletion(jobId, { intervalMs: 3_000 });
-  console.log(job.status, job.result);
+  console.log(job.status, job.status === 'completed' ? await client.getResult(job) : '');
 
   // Recent jobs, newest first.
   const recent = await client.jobs.list({ limit: 5 });

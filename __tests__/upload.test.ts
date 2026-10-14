@@ -1,3 +1,4 @@
+import type { ReadStream } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -194,6 +195,20 @@ describe('uploads.put validation and failures', () => {
       .uploads.put({ uploadUrl: `http://127.0.0.1:${port}/x` }, bytes, { contentType: 'image/jpeg' })
       .catch((e: unknown) => e);
     expect(error).toMatchObject({ constructor: UploadError, code: 'UPLOAD_NETWORK_ERROR' });
+  });
+
+  it('closes the file stream when an upload fails', async () => {
+    const path = join(tempDir, 'leak-check.jpg');
+    await writeFile(path, bytes);
+    const opened: ReadStream[] = [];
+    const failingFetch = async (_url: string, init?: RequestInit): Promise<Response> => {
+      opened.push((init as { body: ReadStream }).body);
+      throw new TypeError('fetch failed');
+    };
+    const sdk = new AuthentaClient({ apiKey: 'api_x', fetch: failingFetch });
+    await expect(sdk.uploads.put(target(), path, { contentType: 'image/jpeg' })).rejects.toMatchObject({ code: 'UPLOAD_NETWORK_ERROR' });
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.destroyed).toBe(true);
   });
 
   it('times out slow uploads', async () => {

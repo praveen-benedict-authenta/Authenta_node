@@ -1,9 +1,13 @@
 {
   "name": "@authenta/node",
   "version": "0.1.0",
-  "description": "Node.js SDK for the Authenta Jobs API: create jobs, upload media to presigned URLs, and poll for results.",
+  "description": "Official Node.js SDK for Authenta: detect AI-generated, deepfake and tampered images, video, audio and PDFs.",
   "license": "MIT",
   "author": "Authenta",
+  "homepage": "https://github.com/Vanaauthenta/Authenta_node#readme",
+  "bugs": {
+    "url": "https://github.com/Vanaauthenta/Authenta_node/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Vanaauthenta/Authenta_node.git"
@@ -11,6 +15,9 @@
   "keywords": [
     "authenta",
     "deepfake",
+    "deepfake-detection",
+    "ai-detection",
+    "liveness",
     "media-verification",
     "sdk"
   ],

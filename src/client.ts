@@ -7,9 +7,9 @@ import { ArtifactsResource } from './artifacts';
 import { ValidationError } from './errors';
 import { HttpClient } from './http';
 import { JobsResource } from './jobs';
-import { contentTypeForAccepted, extensionsFor, isImageType } from './mime';
-import { MODEL_SPECS, buildModelTable, resolveModel, type ModelCode } from './models';
-import { resolveSource, UploadsResource, type UploadSource } from './upload';
+import { isImageType } from './mime';
+import { buildModelTable, resolveModel, type ModelCode } from './models';
+import { UploadsResource, type UploadSource } from './upload';
 import type { CallOptions, FetchLike, JobDetail } from './types';
 import { SDK_VERSION } from './version';
 
@@ -30,9 +30,9 @@ export interface AuthentaClientOptions {
   apiKey: string;
   /** Deployment origin, for example `https://platform.authenta.ai` or `http://localhost:8080`. */
   baseUrl?: string;
-  /** Timeout for each API request. Default 30000 ms. */
+  /** Timeout for each API request. Default 30000 ms; `0` disables it. */
   timeoutMs?: number;
-  /** Timeout for each presigned upload and artifact download. Default 600000 ms. */
+  /** Timeout for each file upload and artifact download. Default 600000 ms; `0` disables it. */
   uploadTimeoutMs?: number;
   /** Automatic retries for GET requests on network errors, timeouts, 429 and 502/503/504. Default 2. */
   maxRetries?: number;
@@ -44,7 +44,7 @@ export interface AuthentaClientOptions {
   userAgent?: string;
   /**
    * Model code → task type ID overrides or additions, merged over `DEFAULT_MODELS`. Use it when your
-   * deployment's IDs differ, e.g. `{ 'PDF-1': '12' }`.
+   * deployment's IDs differ, e.g. `{ 'PDF-1': '<id>' }`.
    */
   models?: Record<string, string | number>;
 }
@@ -147,18 +147,14 @@ export class AuthentaClient {
   }
 
   /**
-   * Runs `FE-1` on an image, waits, and returns the result
-   * (the face embedding) as raw JSON.
+   * Runs `FE-1` on an image, waits, and returns the result (the face embedding) as raw JSON.
+   * Non-image files are rejected before anything is uploaded.
    */
   async extractFaceVector(source: UploadSource, options: ExtractFaceVectorOptions = {}): Promise<unknown> {
-    const resolved = await resolveSource(source);
-    const fileName = options.fileName ?? resolved.fileName;
-    const accepted = MODEL_SPECS['FE-1'].slots.original;
-    const contentType = options.contentType ?? (fileName ? contentTypeForAccepted(fileName, accepted) : undefined);
-    if (!contentType || !isImageType(contentType)) {
-      throw new ValidationError(`FE-1 only supports image input (${extensionsFor(accepted).join(', ')})`, { code: 'INVALID_ARGUMENT' });
+    if (options.contentType !== undefined && !isImageType(options.contentType)) {
+      throw new ValidationError('FE-1 only supports image input', { code: 'CONTENT_TYPE_NOT_ACCEPTED' });
     }
-    const { job } = await this.workflow.process(source, { ...options, contentType, model: 'FE-1', wait: true }) as AnalyzeResult;
+    const { job } = await this.process(source, { ...options, model: 'FE-1' });
     return this.getResult(job, options.signal === undefined ? {} : { signal: options.signal });
   }
 

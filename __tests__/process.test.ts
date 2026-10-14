@@ -203,7 +203,8 @@ describe('client.extractFaceVector', () => {
 
   it('rejects non-image input before sending', async () => {
     const { fetch, calls } = mockFetch();
-    await expect(createClient(fetch).extractFaceVector(videoPath)).rejects.toThrow('FE-1 only supports image input');
+    await expect(createClient(fetch).extractFaceVector(videoPath)).rejects.toMatchObject({ code: 'CONTENT_TYPE_NOT_ACCEPTED' });
+    await expect(createClient(fetch).extractFaceVector(imagePath, { contentType: 'video/mp4' })).rejects.toThrow('FE-1 only supports image input');
     expect(calls).toHaveLength(0);
   });
 

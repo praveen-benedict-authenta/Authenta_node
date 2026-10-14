@@ -139,7 +139,7 @@ export class HttpClient {
 
     const body = parseBody(text);
     if (status < 200 || status >= 300) throw errorFromResponse(status, body, responseHeaders);
-    if (body !== undefined && typeof body === 'string') {
+    if (typeof body === 'string') {
       throw new InvalidResponseError(`${req.method} ${req.path} returned a non-JSON body`, { status, body, code: 'INVALID_RESPONSE' });
     }
     return body;

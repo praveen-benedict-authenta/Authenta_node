@@ -173,6 +173,12 @@ describe('jobs.get', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('normalizes leading zeros in job IDs', async () => {
+    const { fetch, calls } = mockFetch(() => json(200, jobDetail()));
+    await createClient(fetch).jobs.get('00101');
+    expect(calls[0]?.url).toBe(`${BASE_URL}/api/v1/jobs/101`);
+  });
+
   it('accepts numeric and bigint job IDs', async () => {
     const { fetch, calls } = mockFetch(
       () => json(200, jobDetail()),

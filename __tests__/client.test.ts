@@ -135,13 +135,15 @@ describe('GET retries', () => {
     expect(calls).toHaveLength(1);
   });
 
-  it('honours Retry-After on 429', async () => {
+  it('waits for Retry-After on 429 before retrying', async () => {
     const { fetch, calls } = mockFetch(
-      () => apiError(429, 'RATE_LIMITED', 'slow down', {}),
+      () => json(429, { rid: 'rid-1', name: 'RATE_LIMITED', message: 'slow down' }, { 'retry-after': '0.05' }),
       () => json(200, jobDetail()),
     );
+    const started = Date.now();
     await createClient(fetch).jobs.get('101');
     expect(calls).toHaveLength(2);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(45);
   });
 
   it('never retries POST requests', async () => {

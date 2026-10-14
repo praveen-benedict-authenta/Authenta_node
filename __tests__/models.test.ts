@@ -11,6 +11,11 @@ describe('model codes', () => {
     expect(resolveModel(' df-1 ')).toBe('4');
   });
 
+  it.each(['__proto__', 'constructor', 'toString', 'hasOwnProperty'])('does not resolve the inherited property %s as a model', key => {
+    expect(() => resolveModel(key)).toThrow(ValidationError);
+    expect(getModelSpec(key)).toBeUndefined();
+  });
+
   it('lists the valid models for an unknown code', () => {
     expect(() => resolveModel('XX-9')).toThrow(/Unknown model "XX-9". Valid models: AC-1, AF-1/);
     expect(() => resolveModel('XX-9')).toThrow(ValidationError);
