@@ -94,7 +94,7 @@ export class JobsResource {
   /**
    * Creates a job and returns one presigned upload target per input slot.
    *
-   * The wallet is charged when the job is created. This call is never retried: if the outcome is
+   * Credits are used when the job is created. This call is never retried: if the outcome is
    * unknown (network failure, timeout, abort after sending, or a 5xx) it throws
    * `JobCreationUncertainError`.
    */

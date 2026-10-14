@@ -18,7 +18,7 @@ import { throwIfAborted } from './signals';
 import type { CreateJobResponse, FaceIntelligenceParameters, Job, JobDetail } from './types';
 import { resolveSource, type UploadSource, type UploadsResource } from './upload';
 
-/** Slot used when an input does not name one, as in the Python SDK. */
+/** Slot used when an input does not name one. */
 export const DEFAULT_SLOT_NAME = 'original';
 /** Slot used for the reference image of a face similarity check. */
 export const REFERENCE_SLOT_NAME = 'reference';
@@ -40,7 +40,7 @@ export interface AnalyzeInput {
 
 /** Choose the model either by code (`model: 'AC-1'`) or by task type ID (`taskTypeId: '1'`), not both. */
 export interface SubmitOptions {
-  /** Model code, as in the Python SDK (`AC-1`, `DF-1`, `FI-1`, …). */
+  /** Model code (`AC-1`, `DF-1`, `FI-1`, …). */
   model?: ModelCode;
   /** Task type ID, for deployments or models without a code. */
   taskTypeId?: string | number | bigint;
@@ -69,7 +69,7 @@ export interface AnalyzeResult {
   job: JobDetail;
 }
 
-/** Options for `process()`, the Python SDK's one-call workflow. */
+/** Options for `process()`, the one-call workflow. */
 export interface ProcessOptions {
   /** Model code (`AC-1`, `DF-1`, `FI-1`, …). */
   model: ModelCode;
@@ -81,7 +81,7 @@ export interface ProcessOptions {
   livenessCheck?: boolean;
   /** FI-1: face similarity check against `reference` (image only). */
   faceSimilarityCheck?: boolean;
-  /** Wait for a terminal status (Python's `auto_polling`). Default `true`. */
+  /** Wait for a terminal status. Default `true`. */
   wait?: boolean;
   polling?: Omit<WaitOptions, 'signal'>;
   /** Overrides the content type guessed from the file extension. */
@@ -100,7 +100,7 @@ export interface ProcessOptions {
 
 /**
  * Content type for one input. An explicit value is sent unchanged. For a built-in model, the slot must
- * exist and the file type must be one the API server accepts for it; the matching accepted type is
+ * exist and the file type must be one the model accepts; the matching accepted type is
  * used. Otherwise a standard type is guessed from the extension.
  */
 function resolveInputContentType(
@@ -229,7 +229,7 @@ export class Workflow {
   }
 
   /**
-   * One-call workflow mirroring the Python SDK's `process()`: builds the inputs from a model code and
+   * One-call workflow: builds the inputs from a model code and
    * file, applies the FI-1 rules, then submits and (by default) waits for a terminal status.
    */
   async process(source: UploadSource, options: ProcessOptions): Promise<AnalyzeResult | SubmitResult> {

@@ -142,7 +142,7 @@ describe('uploads.put validation and failures', () => {
     expect(received).toHaveLength(0);
   });
 
-  it('maps an S3 "Request has expired" 403 to UploadUrlExpiredError', async () => {
+  it('maps a storage "Request has expired" 403 to UploadUrlExpiredError', async () => {
     replies.push({
       status: 403,
       contentType: 'application/xml',

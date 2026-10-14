@@ -6,15 +6,14 @@ All notable changes to this package are documented here. The format follows [Kee
 
 ### Added
 
-- `AuthentaClient` with API key authentication, configurable base URL, request and upload timeouts, GET retries and injectable `fetch`.
-- Jobs API: `jobs.create`, `jobs.get`, `jobs.list` (limit/offset), `jobs.iterate`, `jobs.finalize`, `jobs.cancel`, `jobs.delete`.
-- `jobs.waitForCompletion` with interval, timeout, `AbortSignal` and `onStatusChange`. Terminal statuses are `completed`, `failed` and `cancelled`.
-- `uploads.put` for presigned uploads from file paths (streamed), Buffers, typed arrays, ArrayBuffers and Blobs. It sends exact `Content-Type` and `Content-Length` and no API key.
-- `submit()` (create → upload → finalize) and `analyze()` (submit + wait), with job cancellation and `JobSubmissionError` when a step fails after creation.
+- `AuthentaClient` with API key authentication, configurable base URL, request and upload timeouts, automatic retries for read requests, and an injectable `fetch`.
+- `process(source, { model })`: upload a file, start processing and wait for the result in one call. Supports model codes (`AC-1`, `DF-1`, `FI-1`, `PDF-1`, …), face intelligence checks with a reference image, and `pageCount` for PDFs.
+- `getResult(job)` and `extractFaceVector(source)`.
+- Automatic file type detection per model. Unsupported files are rejected before upload.
+- Model configuration overrides through the client's `models` option.
+- Jobs API: `jobs.create`, `jobs.get`, `jobs.list`, `jobs.iterate`, `jobs.finalize`, `jobs.cancel`, `jobs.delete`, `jobs.waitForCompletion`.
+- `submit()` and `analyze()` for multi-input jobs, with automatic cancellation if an upload fails.
+- `uploads.put` for file paths (streamed), Buffers, typed arrays, ArrayBuffers and Blobs.
 - `artifacts.list`, `artifacts.download` and `artifacts.downloadJson`.
-- Typed errors that keep the backend's `name` (`code`), `message`, `rid` (`requestId`) and `fields`.
-- `JobCreationUncertainError` for job creation whose outcome is unknown. Creation is never retried.
-- Python SDK model codes (`AC-1` … `PDF-1`) mapped to the API server's task types (`MODEL_SPECS`, `DEFAULT_MODELS`), overridable with the client's `models` option. `model` is accepted by `submit()` and `analyze()`. PDF tampering is task type 12, as on the API server; the Python SDK and public docs list 13.
-- `process(source, { model, … })`, `getResult(job)` and `extractFaceVector(source)`, mirroring the Python SDK. `process()` includes the FI-1 options and rules.
-- Model-aware content types: the exact type the API server accepts for the model is sent (for example `.mov` → `video/mov` for DF-1, `video/quicktime` for FI-1). Unsupported file types and slots are rejected before any request. Standard guessing (`guessContentType`) applies to raw task type IDs. The default slot is `original`.
-- `PDF-1` requires `pageCount` before any request is sent. The Python SDK never sends it.
+- Typed errors with `code`, `message`, `requestId` and `fields`.
+- `JobCreationUncertainError` when job creation is interrupted; creation is never retried automatically.

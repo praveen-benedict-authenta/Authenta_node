@@ -2,7 +2,7 @@
  * HTTP layer for the Authenta API: authentication, timeouts, cancellation, JSON handling and error mapping.
  *
  * Only GET requests are retried automatically. POST and DELETE requests change server state (and job
- * creation charges the wallet), so they are never retried here.
+ * creation uses credits), so they are never retried here.
  */
 
 import {

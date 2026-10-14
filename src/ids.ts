@@ -1,6 +1,5 @@
 /**
- * Validation for numeric IDs. The backend stores job and task type IDs as Postgres bigints and turns a
- * non-numeric path ID into an HTTP 500, so IDs are checked locally before any request is sent.
+ * Validation for numeric job and task type IDs, checked locally before any request is sent.
  */
 
 import { ValidationError } from './errors';

@@ -33,7 +33,7 @@ afterAll(async () => {
 const path = (call: RecordedCall | undefined): string => (call ? `${call.method} ${new URL(call.url).pathname}` : '');
 
 describe('client.process', () => {
-  it('runs a model code end to end like the Python SDK', async () => {
+  it('runs a model code end to end', async () => {
     const { fetch, calls } = mockFetch(
       () => json(201, createResponse()),
       () => empty(200),
@@ -50,7 +50,7 @@ describe('client.process', () => {
     expect(finished.status).toBe('completed');
   });
 
-  it('returns after finalize when wait is false (Python auto_polling=False)', async () => {
+  it('returns after finalize when wait is false', async () => {
     const { fetch, calls } = mockFetch(
       () => json(201, createResponse()),
       () => empty(200),
@@ -96,14 +96,14 @@ describe('client.process', () => {
     ['similarity on a video', () => [videoPath, { faceSimilarityCheck: true, reference: referencePath }]],
     ['similarity without a reference', () => [imagePath, { faceSimilarityCheck: true }]],
     ['FI-1 with no check enabled', () => [imagePath, {}]],
-  ])('rejects %s before sending (Python rules)', async (_label, build) => {
+  ])('rejects %s before sending', async (_label, build) => {
     const [source, extra] = build();
     const { fetch, calls } = mockFetch();
     await expect(createClient(fetch).process(source, { model: 'FI-1', ...extra })).rejects.toBeInstanceOf(ValidationError);
     expect(calls).toHaveLength(0);
   });
 
-  it('rejects a reference the API server would not accept (FI-1 references are jpg or png)', async () => {
+  it('rejects a reference FI-1 does not accept (references are jpg or png)', async () => {
     const { fetch, calls } = mockFetch();
     await expect(
       createClient(fetch).process(imagePath, { model: 'FI-1', faceSimilarityCheck: true, reference: videoPath }),

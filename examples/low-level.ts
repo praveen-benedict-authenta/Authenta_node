@@ -21,7 +21,7 @@ async function main(): Promise<void> {
   const client = new AuthentaClient({ apiKey, ...(process.env.AUTHENTA_BASE_URL ? { baseUrl: process.env.AUTHENTA_BASE_URL } : {}) });
   const { size } = await stat(path);
 
-  // 1. Create the job. This charges the wallet and is never retried automatically.
+  // 1. Create the job. This uses credits and is never retried automatically.
   const created = await client.jobs.create({
     taskTypeId,
     inputs: [

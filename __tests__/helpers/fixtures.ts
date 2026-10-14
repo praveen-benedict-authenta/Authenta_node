@@ -1,6 +1,5 @@
 /**
- * Response fixtures shaped like the Authenta API server's DTOs (job.dto.ts) and its own test
- * expectations (tests/workloads/jobs.spec.ts). IDs and URLs are placeholders.
+ * Response fixtures shaped like Authenta Jobs API responses. IDs and URLs are placeholders.
  */
 
 import type { Artifact, CreateJobResponse, Job, JobDetail, JobList } from '../../src';

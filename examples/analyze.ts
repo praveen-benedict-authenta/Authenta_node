@@ -1,5 +1,5 @@
 /**
- * Process one file with a model code, Python SDK style, and print the result.
+ * Process one file with a model code and print the result.
  *
  *   AUTHENTA_API_KEY=api_... npx ts-node examples/analyze.ts ./photo.jpg AC-1
  *   AUTHENTA_API_KEY=api_... npx ts-node examples/analyze.ts ./contract.pdf PDF-1 4

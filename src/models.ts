@@ -1,24 +1,20 @@
 /**
- * Model codes, the same ones used by the Authenta Python SDK (`model_type="AC-1"`), mapped to the task
- * types defined by the Authenta API server.
+ * Authenta model codes (`AC-1`, `DF-1`, …) and the task type, input slots and accepted content types
+ * each one maps to.
  *
- * Task type IDs, slugs, input slots and accepted content types are taken from the API server's task
- * type configuration (authenta-api-server@45d73d4: scripts/seed-data/workloads/task-types.data.ts, plus
- * the face intelligence rules in src/modules/workloads/job/job.service.ts). Note that the Python SDK and
- * the public docs list PDF tampering as 13; the API server defines it as 12, which this SDK follows.
- *
- * If a deployment uses different IDs, override them: `new AuthentaClient({ apiKey, models: { 'PDF-1': '13' } })`.
+ * If your deployment uses a different configuration, override the IDs:
+ * `new AuthentaClient({ apiKey, models: { 'PDF-1': '<id>' } })`.
  */
 
 import { ValidationError } from './errors';
 
 export interface ModelSpec {
-  /** Task type ID on the API server. */
+  /** Task type ID. */
   readonly taskTypeId: string;
-  /** Task type slug on the API server. */
+  /** Task type slug. */
   readonly slug: string;
   readonly name: string;
-  /** Accepted content types per input slot, exactly as the API server compares them. */
+  /** Accepted content types per input slot. */
   readonly slots: Readonly<Record<string, readonly string[]>>;
 }
 
@@ -65,12 +61,12 @@ export type DefaultModelCode = keyof typeof MODEL_SPECS;
 /** A built-in model code, or a custom one added through the client's `models` option. */
 export type ModelCode = DefaultModelCode | (string & {});
 
-/** Model code → task type ID, as defined by the API server. */
+/** Model code → task type ID. */
 export const DEFAULT_MODELS = Object.fromEntries(
   Object.entries(MODEL_SPECS).map(([code, spec]) => [code, spec.taskTypeId]),
 ) as { readonly [K in DefaultModelCode]: (typeof MODEL_SPECS)[K]['taskTypeId'] };
 
-/** Slug of the page-priced task type: jobs for it must include `pageCount` (job.service.ts). */
+/** Slug of the page-priced task type: jobs for it must include `pageCount`. */
 export const PAGE_PRICED_SLUG = 'pdf-tampering-detection';
 
 /** Model codes whose jobs are priced per page and must include `pageCount`. */

@@ -2,8 +2,7 @@
  * Uploads to presigned URLs returned by job creation.
  *
  * The URL's signature covers the `Content-Type` and the byte length declared when the job was created,
- * so both are sent exactly. The Authenta API key is never sent: the URL carries its own authorization,
- * and S3 rejects requests that combine query-string signing with an `Authorization` header.
+ * so both are sent exactly. The Authenta API key is never sent: the URL carries its own authorization.
  */
 
 import { createReadStream, promises as fsp } from 'node:fs';
@@ -37,7 +36,7 @@ export interface UploadOptions {
 }
 
 export interface UploadResult {
-  /** HTTP status from the storage service (200 from S3, 204 from on-prem local storage). */
+  /** HTTP status returned by the storage service (200 or 204). */
   status: number;
   sizeBytes: number;
 }

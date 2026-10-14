@@ -54,7 +54,7 @@ describe('public types', () => {
     expect(ok).toBe(true);
   });
 
-  it('ships the API server task type IDs (authenta-api-server task-types.data.ts)', () => {
+  it('ships the default model table', () => {
     expect(sdk.DEFAULT_MODELS).toEqual({
       'AC-1': '1',
       'AF-1': '2',

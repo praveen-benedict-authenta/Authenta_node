@@ -52,7 +52,7 @@ export class AuthentaError extends Error {
 /** 401: missing, invalid, revoked or expired API key. */
 export class AuthenticationError extends AuthentaError {}
 
-/** 402: insufficient wallet balance or pay-as-you-go limit reached. */
+/** 402: not enough credits, or the pay-as-you-go limit was reached. */
 export class InsufficientCreditsError extends AuthentaError {}
 
 /** 403: authenticated but not allowed. */
@@ -102,9 +102,8 @@ export class RequestTimeoutError extends AuthentaError {}
 export class InvalidResponseError extends AuthentaError {}
 
 /**
- * Job creation may or may not have succeeded. Creating a job charges the wallet and the API has no
- * idempotency key, so this SDK never retries creation. Check `jobs.list({ createdAfter })` before
- * creating the job again.
+ * Job creation may or may not have succeeded. Creating a job uses credits, so this SDK never retries
+ * creation. Check `jobs.list({ createdAfter })` before creating the job again.
  */
 export class JobCreationUncertainError extends AuthentaError {}
 
@@ -150,8 +149,7 @@ export interface CleanupResult {
 
 /**
  * A job was created but could not be uploaded or finalized. The original error is `cause`; the
- * outcome of the cancellation attempt is `cleanup`. A successful cancellation does not by itself
- * confirm any refund: check your billing records.
+ * outcome of the cancellation attempt is `cleanup`. Check your billing records for credit details.
  */
 export class JobSubmissionError extends AuthentaError {
   readonly stage: 'upload' | 'finalize';

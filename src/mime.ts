@@ -1,9 +1,9 @@
 /**
  * Content types from file extensions.
  *
- * For a known model code, the content type is chosen from the types that model's slot accepts on the
- * API server, so the server receives exactly the value it compares against (for example `.mov` becomes
- * `video/mov` for DF-1 but `video/quicktime` for FI-1). Without a model, a standard type is used.
+ * For a known model code, the content type is chosen from the types that model's slot accepts (for
+ * example `.mov` becomes `video/mov` for DF-1 but `video/quicktime` for FI-1). Without a model, a
+ * standard type is used.
  */
 
 import { ValidationError } from './errors';

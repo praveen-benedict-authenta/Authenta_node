@@ -122,7 +122,7 @@ export class AuthentaClient {
   }
 
   /**
-   * Python SDK style: upload one file for a model and (by default) wait for the result.
+   * Upload one file for a model and (by default) wait for the result.
    *
    * @example await client.process('./photo.jpg', { model: 'AC-1' })
    * @example await client.process('./selfie.jpg', { model: 'FI-1', faceSimilarityCheck: true, reference: './id.jpg' })
@@ -135,7 +135,7 @@ export class AuthentaClient {
   }
 
   /**
-   * Python SDK style `get_result`: returns the result artifact's JSON when the job has one, otherwise
+   * Returns the result artifact's JSON when the job has one, otherwise
    * the job's inline `result`. Throws `ValidationError` (`RESULT_NOT_AVAILABLE`) when neither exists,
    * for example for failed, cancelled or unfinished jobs. The result is returned unvalidated.
    */
@@ -147,7 +147,7 @@ export class AuthentaClient {
   }
 
   /**
-   * Python SDK style `extract_face_vector`: runs `FE-1` on an image, waits, and returns the result
+   * Runs `FE-1` on an image, waits, and returns the result
    * (the face embedding) as raw JSON.
    */
   async extractFaceVector(source: UploadSource, options: ExtractFaceVectorOptions = {}): Promise<unknown> {

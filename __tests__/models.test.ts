@@ -30,7 +30,7 @@ describe('model codes', () => {
 describe('submit with a model code', () => {
   const source = Buffer.from('img');
 
-  it('sends the mapped task type ID and Python-style defaults', async () => {
+  it('sends the mapped task type ID and default slot and content type', async () => {
     const { fetch, calls } = mockFetch(
       () => json(201, createResponse()),
       () => empty(200),
@@ -98,7 +98,7 @@ describe('submit with a model code', () => {
     ['DF-1', 'clip.webm', 'video/webm'],
     ['FL-1', 'face.png', 'image/png'],
     ['PDF-1', 'doc.pdf', 'application/pdf'],
-  ])('sends the exact type the API server accepts: %s + %s → %s', async (model, fileName, expected) => {
+  ])('sends the exact type the model accepts: %s + %s → %s', async (model, fileName, expected) => {
     const { fetch, calls } = mockFetch(
       () => json(201, createResponse()),
       () => empty(200),
@@ -154,7 +154,7 @@ describe('submit with a model code', () => {
 });
 
 describe('MODEL_SPECS', () => {
-  it('matches the API server task types and slots', () => {
+  it('defines the expected task types and slots', () => {
     expect(Object.fromEntries(Object.entries(MODEL_SPECS).map(([code, spec]) => [code, spec.slug]))).toEqual({
       'AC-1': 'ai-image-detection',
       'AF-1': 'ai-audio-detection',

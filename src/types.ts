@@ -1,8 +1,5 @@
 /**
  * Types for the Authenta Jobs API.
- *
- * These mirror the response DTOs of the Authenta API server (job.dto.ts at commit 45d73d4), not the
- * published documentation, which describes a different envelope in several places.
  */
 
 /** Every status the backend can store. `deleted` jobs are never returned by the API (they 404). */

@@ -1,13 +1,13 @@
 # @authenta/node
 
-Node.js SDK for the [Authenta](https://authenta.ai) Jobs API. It creates a job, uploads media to presigned storage URLs, finalizes the job, and waits for the result.
+Official Node.js SDK for [Authenta](https://authenta.ai): detect AI-generated, deepfake and tampered media from your server.
+
+Upload an image, video, audio file or PDF, pick a model, and get the detection result. The SDK handles job creation, secure uploads, processing status and result retrieval for you.
 
 - Node.js 18, 20 and 22
-- TypeScript types included; CommonJS build that can also be imported from ES modules
-- No runtime dependencies (uses the built-in `fetch`)
-- Server-side only: never ship an API key to a browser or mobile app
-
-> **Status: 0.1.0, pre-release.** Built against the Authenta API server's job endpoints. Models are selected with the same codes as the Authenta Python SDK (`AC-1`, `DF-1`, …). Their task type IDs, input slots and accepted file types come from the API server's task type configuration. See [Models](#models).
+- TypeScript types included; works with `require` and `import`
+- No runtime dependencies
+- **Server-side only.** Never put your API key in a browser or mobile app.
 
 ## Installation
 
@@ -22,342 +22,368 @@ import { AuthentaClient } from '@authenta/node';
 
 const client = new AuthentaClient({ apiKey: process.env.AUTHENTA_API_KEY! });
 
-// Same as the Python SDK: client.process("photo.jpg", model_type="AC-1")
 const { job } = await client.process('./photo.jpg', { model: 'AC-1' });
 
 if (job.status === 'completed') {
-  console.log(await client.getResult(job)); // raw result JSON
+  const result = await client.getResult(job);
+  console.log(result);
 } else {
-  console.log(`Job ${job.id} ended as ${job.status}`); // 'failed' or 'cancelled'
+  console.log(`Job ${job.id} ended with status: ${job.status}`);
 }
 ```
 
-`process()` uploads the file, finalizes the job and waits until it is `completed`, `failed` or `cancelled`. Always check `job.status`. The content type is guessed from the file extension, and the input slot defaults to `original`.
+`process()` uploads the file, starts processing, waits until the job finishes and returns it. A finished job is `completed`, `failed` or `cancelled`, so always check `job.status`.
 
-## Models
-
-| Code | Task type ID | Slug | Model | Accepted files |
-|---|---|---|---|---|
-| `AC-1` | 1 | `ai-image-detection` | AI-generated image detection | jpg, png |
-| `AF-1` | 2 | `ai-audio-detection` | AI-generated audio detection | mp3, wav, m4a |
-| `VF-1` | 3 | `ai-video-detection` | AI-generated video detection | mp4, mov |
-| `DF-1` | 4 | `faceswap-detection` | Face-swap (deepfake) video detection | mp4, mov, webm |
-| `FD-1` | 5 | `image-forgery-detection` | Image forgery detection | jpg, png |
-| `DI-1` | 6 | `document-intelligence` | Document forgery detection | jpg, png |
-| `FL-1` | 7 | `face-liveness-detection` | Face liveness detection | jpg, png |
-| `FI-1` | 8 | `face-intelligence` | Face intelligence: liveness, face swap, face similarity | jpg, png, mp4, webm, mov (+ jpg/png reference) |
-| `FE-1` | 9 | `face-embedding` | Face embedding | jpg, png |
-| `AS-1` | 10 | `audio-splitter` | Audio splitter | mp3, wav, m4a |
-| `ED-1` | 11 | `ekyc-deepfake` | eKYC deepfake detection | mp4, mov, webm |
-| `PDF-1` | 12 | `pdf-tampering-detection` | PDF tampering detection (needs `pageCount`) | pdf |
-
-These values come from the Authenta API server's task type configuration (`authenta-api-server`, commit `45d73d4`). They are exported as `MODEL_SPECS`, with the bare code → ID map as `DEFAULT_MODELS`.
-
-> PDF tampering is task type **12** on the API server. The Python SDK and the public documentation list 13; this SDK follows the API server.
-
-If a deployment uses different IDs, override them:
-
-```ts
-const client = new AuthentaClient({ apiKey, models: { 'PDF-1': '13', 'MY-MODEL': '21' } });
-client.resolveModel('PDF-1'); // '13'
-```
-
-You can always bypass codes with an explicit `taskTypeId` in `analyze()` / `submit()` / `jobs.create()`.
-
-### `process(source, options)`
-
-| Option | Default | Meaning |
-|---|---|---|
-| `model` | required | Model code |
-| `wait` | `true` | `false` returns right after finalize (Python `auto_polling=False`) |
-| `polling` | 5 s / 10 min | `{ intervalMs, timeoutMs, onStatusChange }` |
-| `contentType` | guessed | Overrides the guess from the extension |
-| `fileName` | file's name | Required for `Buffer` / `Blob` sources |
-| `pageCount` | — | Required for `PDF-1` |
-| `faceswapCheck`, `livenessCheck`, `faceSimilarityCheck` | `false` | `FI-1` only; at least one must be `true` |
-| `reference` | — | Reference image for `faceSimilarityCheck` (sent as slot `reference`) |
-| `signal`, `cancelOnFailure` | — | As in `analyze()` |
-
-`FI-1` follows the Python SDK's rules, checked before any request:
-- `faceswapCheck` needs a video.
-- `faceSimilarityCheck` needs an image and a `reference`.
-
-```ts
-await client.process('./selfie.jpg', { model: 'FI-1', livenessCheck: true });
-await client.process('./clip.mp4', { model: 'FI-1', faceswapCheck: true });
-await client.process('./selfie.jpg', { model: 'FI-1', faceSimilarityCheck: true, reference: './id.jpg' });
-await client.process('./contract.pdf', { model: 'PDF-1', pageCount: 4 });
-```
-
-### `getResult(job)` and `extractFaceVector(source)`
-
-`getResult(job)` downloads the job's `result` artifact JSON. When there is none, it returns the inline `job.result`. If neither exists (for example a failed job), it throws `ValidationError` with `code: 'RESULT_NOT_AVAILABLE'`.
-
-`extractFaceVector('./face.jpg')` runs `FE-1` and returns the embedding JSON (Python `extract_face_vector`).
-
-### Content types
-
-With a model code, the SDK sends exactly the content type the API server accepts for that model:
-- `.mov` is sent as `video/mov` for `VF-1`, `DF-1` and `ED-1`, but as `video/quicktime` for `FI-1`.
-- `.m4a` is sent as `audio/m4a` for `AF-1` and `AS-1`.
-
-A file type the model does not accept (for example a `.mp4` for `AC-1`) is rejected with `ValidationError` (`code: 'CONTENT_TYPE_NOT_ACCEPTED'`) before anything is uploaded or charged. The error lists the accepted file types.
-
-With a raw `taskTypeId` (or a custom model code), a standard type is guessed instead:
-
-| Extension | Content type |
-|---|---|
-| jpg, jpeg | `image/jpeg` |
-| png | `image/png` |
-| webp | `image/webp` |
-| mp3 | `audio/mpeg` |
-| wav | `audio/wav` |
-| m4a | `audio/mp4` |
-| mp4 | `video/mp4` |
-| mov | `video/quicktime` |
-| webm | `video/webm` |
-| pdf | `application/pdf` |
-
-Other extensions require an explicit `contentType`. An explicit `contentType` is always sent unchanged.
-
-From an ES module:
+Using CommonJS:
 
 ```js
-import { AuthentaClient } from '@authenta/node';
+const { AuthentaClient } = require('@authenta/node');
+```
+
+## Getting an API key
+
+Create an API key in the Authenta console under **Settings → API Keys**. Store it in an environment variable or a secret manager; don't hard-code it.
+
+```bash
+export AUTHENTA_API_KEY="api_..."
 ```
 
 ## Configuration
 
 ```ts
 const client = new AuthentaClient({
-  apiKey: 'api_…',                       // required
-  baseUrl: 'https://platform.authenta.ai', // default; an on-prem origin such as http://localhost:8080 also works
-  timeoutMs: 30_000,                      // per API request
-  uploadTimeoutMs: 600_000,               // per upload and artifact download
-  maxRetries: 2,                          // automatic retries for GET requests only
-  retryDelayMs: 500,                      // base for exponential backoff
-  fetch: customFetch,                     // optional, e.g. for proxies or tests
+  apiKey: process.env.AUTHENTA_API_KEY!,   // required
+  baseUrl: 'https://platform.authenta.ai', // optional, this is the default
+  timeoutMs: 30_000,                       // per API request
+  uploadTimeoutMs: 600_000,                // per file upload or download
+  maxRetries: 2,                           // automatic retries for read requests
+  retryDelayMs: 500,                       // base delay between retries
 });
 ```
 
-`baseUrl` is the origin. A trailing `/api/v1` is accepted and removed. The API key is sent as `Authorization: Bearer <apiKey>` on API requests only.
+Only `apiKey` is required. Set `baseUrl` when your organization uses a dedicated or on-premises Authenta deployment.
 
-## Job lifecycle
+## Models
 
+Choose a model with `model`. It decides what Authenta checks in your file.
+
+| Model | What it detects | Accepted files |
+|---|---|---|
+| `AC-1` | AI-generated images | jpg, png |
+| `FD-1` | Forged or edited images | jpg, png |
+| `DI-1` | Forged documents (photo or scan) | jpg, png |
+| `FL-1` | Face liveness (real face vs. spoof) | jpg, png |
+| `FE-1` | Face embedding (face vector) | jpg, png |
+| `FI-1` | Face intelligence: liveness, face swap, face match | jpg, png, mp4, webm, mov |
+| `VF-1` | AI-generated video | mp4, mov |
+| `DF-1` | Face swap (deepfake) video | mp4, mov, webm |
+| `ED-1` | Deepfakes in eKYC videos | mp4, mov, webm |
+| `AF-1` | AI-generated audio | mp3, wav, m4a |
+| `AS-1` | Audio splitting (voice and background) | mp3, wav, m4a |
+| `PDF-1` | Tampered PDF documents | pdf |
+
+The SDK sets the correct file type for the model automatically. A file the model doesn't accept is rejected before anything is uploaded or charged:
+
+```ts
+await client.process('./clip.mp4', { model: 'AC-1' });
+// ValidationError: Model AC-1 (slot "original") does not accept "clip.mp4". Accepted file types: jpg, jpeg, png
 ```
-create  ──►  upload each input  ──►  finalize  ──►  queued ──► processing ──► completed
-(initiated)  (presigned PUT)          (queued)            ▲          │     └──► failed
-                                                          └──────────┘ retried by the server
-initiated / queued ──► cancelled (via cancel)
+
+If your Authenta account manager gives you a different model configuration, pass it once when creating the client:
+
+```ts
+const client = new AuthentaClient({ apiKey, models: { 'PDF-1': '<id from Authenta>' } });
+```
+
+## Common tasks
+
+### Detect an AI-generated or edited image
+
+```ts
+const { job } = await client.process('./photo.jpg', { model: 'AC-1' });
+const result = await client.getResult(job);
+```
+
+### Detect a deepfake video
+
+```ts
+const { job } = await client.process('./interview.mp4', { model: 'DF-1' });
+```
+
+Videos take longer to process. Raise the wait time if needed:
+
+```ts
+await client.process('./interview.mp4', { model: 'DF-1', polling: { timeoutMs: 30 * 60_000 } });
+```
+
+### Face intelligence (`FI-1`)
+
+Turn on one or more checks:
+
+```ts
+// Is this a live person?
+await client.process('./selfie.jpg', { model: 'FI-1', livenessCheck: true });
+
+// Was the face swapped? (video only)
+await client.process('./selfie-video.mp4', { model: 'FI-1', faceswapCheck: true });
+
+// Is it the same person as on the ID? (image only, needs a reference photo)
+await client.process('./selfie.jpg', {
+  model: 'FI-1',
+  faceSimilarityCheck: true,
+  reference: './id-card.jpg',
+});
+```
+
+At least one check must be enabled. `faceswapCheck` needs a video; `faceSimilarityCheck` needs an image and a `reference` image.
+
+### Check a PDF for tampering
+
+PDF checks are priced per page, so pass the number of pages:
+
+```ts
+await client.process('./contract.pdf', { model: 'PDF-1', pageCount: 4 });
+```
+
+### Extract a face embedding
+
+```ts
+const embedding = await client.extractFaceVector('./face.jpg');
+```
+
+### Upload from memory
+
+Buffers, `Uint8Array`, `ArrayBuffer` and `Blob` work too. Give the file a name so its type can be detected:
+
+```ts
+const bytes = await fs.promises.readFile('./photo.jpg');
+await client.process(bytes, { model: 'AC-1', fileName: 'photo.jpg' });
+```
+
+### Submit now, collect the result later
+
+```ts
+const { job } = await client.process('./video.mp4', { model: 'DF-1', wait: false });
+saveJobId(job.id);
+
+// later, for example in a background worker
+const finished = await client.jobs.waitForCompletion(job.id);
+const result = await client.getResult(finished);
+```
+
+## `process()` options
+
+| Option | Default | Description |
+|---|---|---|
+| `model` | required | Model to run (see [Models](#models)) |
+| `wait` | `true` | Wait for the result. `false` returns as soon as the job is queued |
+| `polling` | | `{ intervalMs, timeoutMs, onStatusChange }`; see [Waiting for results](#waiting-for-results) |
+| `fileName` | from path | Required when uploading from memory |
+| `contentType` | detected | Override the detected file type |
+| `pageCount` | | Required for `PDF-1` |
+| `livenessCheck`, `faceswapCheck`, `faceSimilarityCheck` | `false` | `FI-1` checks |
+| `reference` | | Reference image for `faceSimilarityCheck` |
+| `signal` | | `AbortSignal` to stop the whole operation |
+| `cancelOnFailure` | `true` | Cancel the job automatically if the upload fails |
+
+## Results
+
+When a job is `completed`, read the result with `getResult()`:
+
+```ts
+const result = await client.getResult(job);
+```
+
+It returns the model's full result as JSON. The fields depend on the model, so inspect the result for the model you use. `getResult()` throws `ValidationError` with `code: 'RESULT_NOT_AVAILABLE'` when there's no result, for example for a `failed` job.
+
+A short summary is also available directly on the job as `job.result`.
+
+### Files produced by a job
+
+Some models produce extra files, such as heatmaps:
+
+```ts
+const job = await client.jobs.get(jobId);
+
+for (const file of client.artifacts.list(job, 'heatmap')) {
+  const bytes = await client.artifacts.download(file);
+  await fs.promises.writeFile(`heatmap-${file.id}.png`, bytes);
+}
+```
+
+Download links expire after a few minutes. If a download fails with `code: 'ARTIFACT_URL_EXPIRED'`, call `client.jobs.get(jobId)` again for fresh links.
+
+## Waiting for results
+
+```ts
+const job = await client.jobs.waitForCompletion(jobId, {
+  intervalMs: 5_000,     // how often to check (default 5 s)
+  timeoutMs: 600_000,    // give up after (default 10 min)
+  onStatusChange: (job, previous) => console.log(previous, '→', job.status),
+});
 ```
 
 | Status | Meaning |
 |---|---|
-| `initiated` | Created; waiting for uploads and finalize |
-| `queued` | Finalized; waiting for a worker |
-| `processing` | A worker is running the model. It can return to `queued` if the server retries it |
-| `completed` | Finished; `job.result` and artifacts are available |
-| `failed` | Retries exhausted. The API does not return a failure reason |
+| `initiated` | Job created, waiting for the file upload |
+| `queued` | Upload done, waiting to be processed |
+| `processing` | Being analyzed. It may return to `queued` if processing is retried |
+| `completed` | Done; the result is available |
+| `failed` | Processing failed |
 | `cancelled` | Cancelled before processing started |
 
-A job left `initiated` is cleaned up by the server after roughly 20 minutes. Fetching it afterwards returns `NotFoundError`.
+If the timeout passes, `JobTimeoutError` is thrown. The job keeps running, and `error.jobId` lets you check on it later. Pass an `AbortSignal` as `signal` to stop waiting at any time.
 
-## Low-level API
+## Managing jobs
 
 ```ts
-// Create: returns { job, inputs: [{ slotName, uploadUrl, uploadUrlExpiresAt }] }
-const created = await client.jobs.create({
-  taskTypeId: '1',
-  inputs: [{ slotName: 'original', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 48213 }],
-});
-
-// Upload each input straight to storage
-await client.uploads.put(created.inputs[0]!, './photo.jpg', { contentType: 'image/jpeg', sizeBytes: 48213 });
-
-// Finalize: returns the job, normally `queued`
-await client.jobs.finalize(created.job.id);
-
-// Poll until completed, failed or cancelled
-const job = await client.jobs.waitForCompletion(created.job.id, {
-  intervalMs: 5_000,
-  timeoutMs: 600_000,
-  signal: AbortSignal.timeout(15 * 60_000),
-  onStatusChange: (current, previous) => console.log(previous, '→', current.status),
-});
-
-await client.jobs.get(jobId);     // job + raw result + artifacts
-await client.jobs.cancel(jobId);  // only while initiated or queued
-await client.jobs.delete(jobId);  // not while processing
+await client.jobs.get(jobId);       // status, result and files
+await client.jobs.cancel(jobId);    // only before processing starts
+await client.jobs.delete(jobId);    // delete a job and its files (not while processing)
 ```
-
-Job IDs are numeric strings (`"101"`). Numbers and bigints are accepted too. Anything else is rejected locally with `ValidationError` before a request is sent.
 
 ### Listing jobs
 
-The API uses limit/offset pagination and returns jobs newest first.
-
 ```ts
 const page = await client.jobs.list({ limit: 20, offset: 0, status: 'completed' });
-// { limit, offset, total, data: Job[] }
+console.log(page.total, page.data);
 
-for await (const job of client.jobs.iterate({ taskTypeSlug: 'ai-image-detection' })) {
+for await (const job of client.jobs.iterate({ createdAfter: new Date('2026-01-01') })) {
   console.log(job.id, job.status);
 }
 ```
 
-Filters: `status`, `taskTypeSlug`, `createdAfter`, `createdBefore` (Date or ISO string). `limit` is 1–100. Because pagination is offset-based, jobs created while you iterate can appear twice.
+Filters: `status`, `createdAfter`, `createdBefore`. Jobs are returned newest first, with `limit` 1–100.
 
-### Submitting without waiting
+## Error handling
 
-`client.submit(options)` does create → upload → finalize and returns `{ created, job }`. You can then poll later with `jobs.waitForCompletion(job.id)`.
+All errors extend `AuthentaError` and include:
 
-## Uploads
-
-- **Sources:** a file path (streamed from disk), `Buffer`, `Uint8Array`, `ArrayBuffer` or `Blob`. With in-memory sources in `analyze()`, `fileName` is required.
-- **Headers:** the upload URL is signed for the declared `Content-Type` and byte length. The SDK sends exactly that `Content-Type` and `Content-Length`, and checks the source size against `sizeBytes` first.
-- **No API key:** the upload goes directly to storage with no `Authorization` header. The signed URL is never included in error messages.
-- **Expiry:** upload URLs are short-lived. The server sizes them to the file, with a minimum of about 30 seconds, so upload immediately after creating the job. An expired URL raises `UploadUrlExpiredError`. There is no endpoint to issue a new URL, so create a new job instead.
-- **Content type:** with a model code, the SDK picks the exact type the model accepts (see [Content types](#content-types)). `uploads.put()` and `jobs.create()` take the content type you pass and do not guess.
-- **PDFs:** page-priced task types (PDF tampering detection) require `pageCount` on the input. The SDK forwards it but cannot count pages; the server rejects the job with `ValidationError` if it is missing.
-
-## Polling
-
-`waitForCompletion` polls `GET /jobs/:id`:
-
-- It stops on `completed`, `failed` or `cancelled`.
-- Its defaults are a 5-second interval and a 10-minute timeout. The SDK chose these; the API doesn't publish guidance.
-- Transient errors (network, timeouts, 429, 502/503/504) are retried by the HTTP layer.
-- When the timeout passes, it throws `JobTimeoutError` with `lastJob`. The job keeps running on the server.
-- An `AbortSignal` stops it immediately; the promise rejects with the signal's reason.
-
-Processing can take a long time: workers may be starting up, and the server retries failed attempts. Choose a timeout that suits your task type.
-
-## Results and artifacts
-
-`job.result` is the raw JSON written by the processing worker. The SDK returns it **unvalidated** (`unknown`) because result schemas differ by task type and are not yet published as a stable contract. Failed jobs have no result.
-
-```ts
-const detail = await client.jobs.get(jobId);
-for (const artifact of client.artifacts.list(detail, 'result')) {
-  const json = await client.artifacts.downloadJson(artifact); // raw JSON
-}
-const heatmaps = client.artifacts.list(detail, 'heatmap');
-const bytes = await client.artifacts.download(heatmaps[0]!);
-```
-
-Download URLs expire after a few minutes. If a download fails with `code: 'ARTIFACT_URL_EXPIRED'`, call `jobs.get()` again for fresh URLs.
-
-## Errors
-
-Every error extends `AuthentaError`. API errors keep the server's response:
-
-| Property | Source |
+| Property | Description |
 |---|---|
-| `status` | HTTP status |
-| `code` | Backend error `name`, e.g. `JOB_NOT_FOUND`, `VALIDATION_ERROR` |
-| `message` | Backend `message` |
-| `requestId` | Backend `rid`. Include it when contacting support |
-| `fields` | Field-level validation messages |
-| `body` | Parsed (or truncated) response body |
+| `message` | What went wrong |
+| `code` | Error code, e.g. `JOB_NOT_FOUND`, `VALIDATION_ERROR` |
+| `status` | HTTP status, when the error came from the API |
+| `requestId` | Request ID. Include it when contacting Authenta support |
+| `fields` | Field-level details for validation errors |
+| `jobId` | The related job, when known |
 
-| Class | When | Retry? |
-|---|---|---|
-| `ValidationError` | 400/413/422, or invalid arguments caught locally | No: fix the request |
-| `AuthenticationError` | 401: missing, invalid, revoked or expired key | No |
-| `InsufficientCreditsError` | 402: balance or pay-as-you-go limit | No: top up |
-| `AuthorizationError` | 403 | No |
-| `NotFoundError` | 404: job, task type or upload not found | No |
-| `ConflictError` | 409, e.g. finalizing a job that cannot be finalized | No |
-| `QuotaExceededError` | 429 (`retryAfterMs`) | GETs are retried automatically |
-| `ServerError` | 5xx | GETs are retried on 502/503/504 |
-| `NetworkError` | No response (`possiblySent` tells you whether the server may have received it) | GETs are retried |
-| `RequestTimeoutError` | API request timed out | GETs are retried |
-| `InvalidResponseError` | Unparseable or unexpected response | No |
-| `JobCreationUncertainError` | Job creation may or may not have happened | See below |
-| `UploadError` / `UploadUrlExpiredError` | Upload to storage failed or URL expired | New job needed |
-| `JobSubmissionError` | A created job failed during upload or finalize (`cause`, `cleanup`) | See below |
-| `JobTimeoutError` | `waitForCompletion` timed out (`lastJob`) | Poll again later |
-| `ArtifactDownloadError` | Artifact download failed | Refetch the job first |
-
-### Job creation is never retried
-
-Creating a job charges the wallet, and the API has no idempotency key. If the outcome is unknown, the SDK throws `JobCreationUncertainError` instead of retrying. That covers a dropped connection, a timeout, an abort after sending, or a 5xx (the server can commit the job before failing). Check `jobs.list({ createdAfter })` before creating it again.
-
-### Failed submissions are cleaned up
-
-If an upload or finalize fails after the job was created, `submit()` and `analyze()` try to cancel the job and then throw `JobSubmissionError`:
+| Error | When |
+|---|---|
+| `ValidationError` | Invalid input, unsupported file type, or the API rejected the request |
+| `AuthenticationError` | Missing, invalid, revoked or expired API key |
+| `InsufficientCreditsError` | Not enough credits |
+| `AuthorizationError` | Not allowed |
+| `NotFoundError` | Job not found |
+| `ConflictError` | The action doesn't fit the job's current state |
+| `QuotaExceededError` | Too many requests |
+| `ServerError` | Authenta service error |
+| `NetworkError`, `RequestTimeoutError` | Connection problems or a slow response |
+| `JobCreationUncertainError` | The connection dropped while creating a job; it may or may not exist |
+| `JobSubmissionError` | The job was created but the upload or start failed |
+| `UploadError`, `UploadUrlExpiredError` | The file upload failed or its upload link expired |
+| `JobTimeoutError` | The job did not finish within `timeoutMs` |
+| `ArtifactDownloadError` | Downloading a result file failed |
 
 ```ts
+import {
+  AuthenticationError,
+  InsufficientCreditsError,
+  JobCreationUncertainError,
+  JobSubmissionError,
+  JobTimeoutError,
+  ValidationError,
+} from '@authenta/node';
+
 try {
-  await client.analyze(options);
+  const { job } = await client.process('./photo.jpg', { model: 'AC-1' });
 } catch (error) {
-  if (error instanceof JobSubmissionError) {
-    error.jobId;            // the job that was created
-    error.stage;            // 'upload' | 'finalize'
-    error.cause;            // the original failure
-    error.cleanup.succeeded; // whether the cancel request succeeded
-    error.cleanup.error;    // why the cancel failed, if it did
+  if (error instanceof AuthenticationError) {
+    // check your API key
+  } else if (error instanceof InsufficientCreditsError) {
+    // top up credits
+  } else if (error instanceof ValidationError) {
+    console.log(error.message, error.fields);
+  } else if (error instanceof JobSubmissionError) {
+    console.log(`Job ${error.jobId} could not start; cancelled: ${error.cleanup.succeeded}`, error.cause);
+  } else if (error instanceof JobTimeoutError) {
+    console.log(`Job ${error.jobId} is still running; check again later`);
+  } else if (error instanceof JobCreationUncertainError) {
+    // see below
+  } else {
+    throw error;
   }
 }
 ```
 
-Pass `cancelOnFailure: false` to skip the cancellation. Cleanup runs even if your `AbortSignal` caused the failure.
+### Creating a job is never retried
 
-An ambiguous finalize failure (network error, timeout, 5xx) is checked against the job's state first. If the job is already queued, the submission succeeds. A `409` from `jobs.finalize()` is accepted only when the job is demonstrably finalized (`queued`, `processing`, `completed` or `failed`).
+Creating a job uses credits, so the SDK never retries it automatically. If the connection drops while a job is being created, you get `JobCreationUncertainError`. List your recent jobs before trying again, so you don't create a duplicate:
 
-## Billing
+```ts
+const recent = await client.jobs.list({ createdAfter: startedAt });
+```
 
-Based on the Authenta API server's behaviour:
+### Failed uploads are cleaned up
 
-- **Charge time:** the cost is charged when the job is **created**, not when it is finalized.
-- **Refunds:** the server reverses the charge when a job is cancelled or fails after exhausting retries. This SDK does not observe billing, so it never reports a refund. Check your billing history in the Authenta console.
-- **Abandoned jobs:** a job left in `initiated` is cleaned up after about 20 minutes.
+If the file upload fails after a job was created, the SDK cancels that job and throws `JobSubmissionError`:
+- `error.cause` is the original problem.
+- `error.cleanup.succeeded` says whether the cancellation worked.
 
-## Task configuration
+Upload links are short-lived, so uploads start immediately after the job is created. If a link expires, run `process()` again.
 
-Task type IDs, slot names and accepted content types are configured on the API server, and API keys cannot list them. The SDK therefore ships the API server's task type configuration as the [model table](#models), with overridable IDs. Each model uses the slot `original` (plus `reference` for `FI-1`), and content types are matched to what the model accepts.
+## Credits
 
-For full control, use `analyze()` / `submit()` with explicit values:
+Credits are used when a job is created. Reading jobs, listing, cancelling and deleting don't use credits. Check your balance and usage in the Authenta console under **Settings → Billing**.
+
+## Advanced: step-by-step API
+
+For full control you can run each step yourself:
+
+```ts
+// 1. Create the job
+const created = await client.jobs.create({
+  taskTypeId: client.resolveModel('AC-1'),
+  inputs: [{ slotName: 'original', fileName: 'photo.jpg', contentType: 'image/jpeg', sizeBytes: 48213 }],
+});
+
+// 2. Upload the file to the provided upload link (start right away)
+await client.uploads.put(created.inputs[0]!, './photo.jpg', { contentType: 'image/jpeg', sizeBytes: 48213 });
+
+// 3. Start processing
+await client.jobs.finalize(created.job.id);
+
+// 4. Wait for the result
+const job = await client.jobs.waitForCompletion(created.job.id);
+```
+
+`client.submit()` and `client.analyze()` cover the same flow with more control over inputs:
 
 ```ts
 await client.analyze({
-  taskTypeId: '1',                          // or model: 'AC-1'
-  inputs: [{ slotName: 'original', source, contentType: 'image/jpeg' }],
-  parameters: { isLivenessCheck: true },    // face intelligence only
+  model: 'FI-1',
+  inputs: [
+    { slotName: 'original', source: './selfie.jpg' },
+    { slotName: 'reference', source: './id-card.jpg' },
+  ],
+  parameters: { isSimilarityCheck: true },
 });
 ```
 
-`parameters` accepts only the face intelligence flags (`isFaceswapCheck`, `isLivenessCheck`, `isSimilarityCheck`). The server drops any other keys.
+## Requirements and limitations
 
-## Limitations
-
-These are not supported, because the API doesn't provide them:
-
-- Webhooks
-- Batch submission
-- Listing task types with an API key
-- Re-issuing expired upload URLs
-- Failure reasons for failed jobs
-- Idempotent job creation
-- Browser use
-
-Two Python SDK features are not included in this package:
-- face indexing (`faceEnroll`, `faceSearch`, `tenants`)
-- the OpenCV `visualization` helpers
-
-Artifacts such as heatmaps can still be downloaded with `client.artifacts`.
-
-## Examples
-
-`examples/analyze.ts` (`process()` with a model code) and `examples/low-level.ts` (one call at a time) are runnable against a real deployment. They need `AUTHENTA_API_KEY` and, optionally, `AUTHENTA_BASE_URL`; `low-level.ts` also needs `AUTHENTA_TASK_TYPE_ID`. Run them with `npx ts-node`; ts-node is not a dependency of this package.
+- Node.js 18 or newer. Server-side use only.
+- Results are delivered by polling; webhooks are not available.
+- One job per file. For many files, call `process()` for each file.
+- An expired upload link can't be renewed; run the job again.
 
 ## Development
 
 ```bash
 npm install
-npm run lint    # strict type-check of src, tests and examples
-npm test        # unit tests; no network or credentials needed
-npm run build   # dist/ (CommonJS + .d.ts)
+npm run lint    # type-check
+npm test        # unit tests (no network or API key needed)
+npm run build   # compile to dist/
 ```
 
 ## License
