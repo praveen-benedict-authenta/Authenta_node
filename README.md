@@ -1,4 +1,4 @@
-# @authenta/node
+# @authentadev/node
 
 Official Node.js SDK for [Authenta](https://authenta.ai): detect AI-generated, deepfake and tampered media from your server.
 
@@ -12,13 +12,13 @@ Upload an image, video, audio file or PDF, pick a model, and get the detection r
 ## Installation
 
 ```bash
-npm install @authenta/node
+npm install @authentadev/node
 ```
 
 ## Quick start
 
 ```ts
-import { AuthentaClient } from '@authenta/node';
+import { AuthentaClient } from '@authentadev/node';
 
 const client = new AuthentaClient({ apiKey: process.env.AUTHENTA_API_KEY! });
 
@@ -37,7 +37,7 @@ if (job.status === 'completed') {
 Using CommonJS:
 
 ```js
-const { AuthentaClient } = require('@authenta/node');
+const { AuthentaClient } = require('@authentadev/node');
 ```
 
 ## Getting an API key
@@ -293,7 +293,7 @@ import {
   JobSubmissionError,
   JobTimeoutError,
   ValidationError,
-} from '@authenta/node';
+} from '@authentadev/node';
 
 try {
   const { job } = await client.process('./photo.jpg', { model: 'AC-1' });
