@@ -167,6 +167,21 @@ describe('jobs.get', () => {
     expect(detail.artifacts).toHaveLength(1);
   });
 
+  it('passes tagged results and unknown result fields through unchanged', async () => {
+    const result = {
+      isFake: false,
+      confidencePercent: 89.6,
+      fakeConfidencePercent: 10.4,
+      realConfidencePercent: 89.6,
+      tag: 'real',
+      tagBoundaries: { real: 30, likelyReal: 60, likelyFake: 70 },
+      modelVersion: 'v2.1.0',
+      someFutureField: { nested: true },
+    };
+    const { fetch } = mockFetch(() => json(200, jobDetail({ status: 'completed', result })));
+    await expect(createClient(fetch).jobs.get('101')).resolves.toMatchObject({ result });
+  });
+
   it.each(['abc', '12a', '-1', '', '99999999999999999999', ' '])('rejects job ID %p without sending a request', async id => {
     const { fetch, calls } = mockFetch();
     await expect(createClient(fetch).jobs.get(id)).rejects.toMatchObject({ constructor: ValidationError, code: 'INVALID_ID' });

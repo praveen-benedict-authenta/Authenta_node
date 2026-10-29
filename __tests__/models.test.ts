@@ -16,6 +16,11 @@ describe('model codes', () => {
     expect(getModelSpec(key)).toBeUndefined();
   });
 
+  it('no longer has the AS-1 audio splitter', () => {
+    expect(() => resolveModel('AS-1')).toThrow(ValidationError);
+    expect(getModelSpec('AS-1')).toBeUndefined();
+  });
+
   it('lists the valid models for an unknown code', () => {
     expect(() => resolveModel('XX-9')).toThrow(/Unknown model "XX-9". Valid models: AC-1, AF-1/);
     expect(() => resolveModel('XX-9')).toThrow(ValidationError);
@@ -29,6 +34,23 @@ describe('model codes', () => {
     expect(client.resolveModel('AC-1')).toBe('1');
     expect(client.models['PDF-1']).toBe('13');
     expect(DEFAULT_MODELS['PDF-1']).toBe('12');
+  });
+
+  it.each([
+    ['production (default baseUrl)', undefined, '13'],
+    ['production with a trailing slash', 'https://platform.authenta.ai/', '13'],
+    ['dev', 'https://platform-dev.authenta.ai', '12'],
+    ['localhost', 'http://localhost:8080', '12'],
+  ])('maps PDF-1 per deployment: %s', (_label, baseUrl, id) => {
+    const { fetch } = mockFetch();
+    const client = new AuthentaClient({ apiKey: 'api_x', fetch, ...(baseUrl === undefined ? {} : { baseUrl }) });
+    expect(client.resolveModel('PDF-1')).toBe(id);
+    expect(client.resolveModel('AC-1')).toBe('1');
+  });
+
+  it('lets a client override win over the production PDF-1 ID', () => {
+    const { fetch } = mockFetch();
+    expect(new AuthentaClient({ apiKey: 'api_x', fetch, models: { 'PDF-1': '99' } }).resolveModel('PDF-1')).toBe('99');
   });
 });
 
@@ -99,7 +121,7 @@ describe('submit with a model code', () => {
     ['ED-1', 'clip.mov', 'video/mov'],
     ['FI-1', 'clip.mov', 'video/quicktime'],
     ['AF-1', 'voice.m4a', 'audio/m4a'],
-    ['AS-1', 'mix.wav', 'audio/wav'],
+    ['AF-1', 'mix.wav', 'audio/wav'],
     ['DF-1', 'clip.webm', 'video/webm'],
     ['FL-1', 'face.png', 'image/png'],
     ['PDF-1', 'doc.pdf', 'application/pdf'],
@@ -170,7 +192,6 @@ describe('MODEL_SPECS', () => {
       'FL-1': 'face-liveness-detection',
       'FI-1': 'face-intelligence',
       'FE-1': 'face-embedding',
-      'AS-1': 'audio-splitter',
       'ED-1': 'ekyc-deepfake',
       'PDF-1': 'pdf-tampering-detection',
     });

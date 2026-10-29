@@ -20,6 +20,36 @@ export type ArtifactKind = 'input' | 'result' | 'heatmap' | 'image' | 'report' |
 
 export type ArtifactStatus = 'pending' | 'completed';
 
+/** Four-level verdict derived from `fakeConfidencePercent`. Kept open-ended for tags added on the server. */
+export type ResultTag = 'real' | 'likely_real' | 'likely_fake' | 'fake' | (string & {});
+
+/** Upper `fakeConfidencePercent` limit (inclusive) of each tier. Scores above `likelyFake` are tagged `fake`. */
+export interface TagBoundaries {
+  real: number;
+  likelyReal: number;
+  likelyFake: number;
+}
+
+/**
+ * Common fields of `job.result` for task types that produce a single score. Every field is optional:
+ * jobs completed before tagging was introduced have no `tag`, `tagBoundaries` or `modelVersion`, and
+ * non-scored task types (for example face intelligence) carry none of these. Narrow `job.result` to this
+ * type yourself; the SDK does not validate it.
+ */
+export interface ScoredResult {
+  isFake?: boolean;
+  /** Confidence (0-100) in the returned verdict. Use `fakeConfidencePercent` or `tag` for thresholds. */
+  confidencePercent?: number;
+  fakeConfidencePercent?: number;
+  realConfidencePercent?: number;
+  tag?: ResultTag;
+  /** Boundaries stored with the job when it ran. Read these instead of hard-coding values. */
+  tagBoundaries?: TagBoundaries;
+  /** Version of the detection model that produced the result, e.g. `v2.1.0`. */
+  modelVersion?: string;
+  [key: string]: unknown;
+}
+
 /** A job as returned by create (inside `job`), finalize, cancel and list. */
 export interface Job {
   /** Numeric job ID, serialized as a string. */
@@ -34,7 +64,8 @@ export interface Job {
   updatedAt: string;
   /**
    * Raw result written by the processing worker, or `null`. The shape depends on the task type and is
-   * not validated by this SDK. It is not populated for failed jobs.
+   * not validated by this SDK. It is not populated for failed jobs. Scored task types return the fields
+   * described by `ScoredResult`, including `tag`.
    */
   result?: unknown;
 }

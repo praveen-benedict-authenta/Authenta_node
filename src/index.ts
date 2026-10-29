@@ -23,6 +23,8 @@ export {
   DEFAULT_MODELS,
   MODEL_SPECS,
   PAGE_COUNT_MODELS,
+  PRODUCTION_BASE_URL,
+  PRODUCTION_MODEL_OVERRIDES,
   getModelSpec,
   resolveModel,
   type DefaultModelCode,
@@ -72,6 +74,9 @@ export type {
   JobList,
   JobStatus,
   ListJobsParams,
+  ResultTag,
+  ScoredResult,
+  TagBoundaries,
   TerminalJobStatus,
   UploadTarget,
 } from './types';

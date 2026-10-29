@@ -41,7 +41,6 @@ export const MODEL_SPECS = {
     slots: { original: ['image/jpeg', 'image/png', 'video/mp4', 'video/webm', 'video/quicktime'], reference: IMAGE },
   },
   'FE-1': { taskTypeId: '9', slug: 'face-embedding', name: 'Face embedding', slots: { original: IMAGE } },
-  'AS-1': { taskTypeId: '10', slug: 'audio-splitter', name: 'Audio splitter', slots: { original: AUDIO } },
   'ED-1': {
     taskTypeId: '11',
     slug: 'ekyc-deepfake',
@@ -66,6 +65,12 @@ export const DEFAULT_MODELS = Object.fromEntries(
   Object.entries(MODEL_SPECS).map(([code, spec]) => [code, spec.taskTypeId]),
 ) as { readonly [K in DefaultModelCode]: (typeof MODEL_SPECS)[K]['taskTypeId'] };
 
+/** Origin of the production deployment, whose task type IDs differ for some models. */
+export const PRODUCTION_BASE_URL = 'https://platform.authenta.ai';
+
+/** Task type IDs on production that differ from `DEFAULT_MODELS` (which match other deployments). */
+export const PRODUCTION_MODEL_OVERRIDES: Readonly<Record<string, string>> = { 'PDF-1': '13' };
+
 /** Slug of the page-priced task type: jobs for it must include `pageCount`. */
 export const PAGE_PRICED_SLUG = 'pdf-tampering-detection';
 
@@ -85,9 +90,13 @@ export function getModelSpec(model: string): ModelSpec | undefined {
   return Object.hasOwn(MODEL_SPECS, code) ? (MODEL_SPECS as Record<string, ModelSpec>)[code] : undefined;
 }
 
-/** Builds the effective model table: defaults plus overrides, keyed by upper-cased code. */
-export function buildModelTable(overrides: Record<string, string | number> = {}): Record<string, string> {
+/**
+ * Builds the effective model table, keyed by upper-cased code: defaults, then the production IDs when
+ * `baseUrl` is the production origin, then the caller's overrides.
+ */
+export function buildModelTable(overrides: Record<string, string | number> = {}, baseUrl?: string): Record<string, string> {
   const table: Record<string, string> = { ...DEFAULT_MODELS };
+  if (baseUrl === PRODUCTION_BASE_URL) Object.assign(table, PRODUCTION_MODEL_OVERRIDES);
   for (const [code, id] of Object.entries(overrides)) table[normalizeModelCode(code)] = String(id);
   return table;
 }

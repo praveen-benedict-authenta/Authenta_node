@@ -43,8 +43,8 @@ export interface AuthentaClientOptions {
   /** Overrides the `User-Agent` header sent to the API. */
   userAgent?: string;
   /**
-   * Model code → task type ID overrides or additions, merged over `DEFAULT_MODELS`. Use it when your
-   * deployment's IDs differ, e.g. `{ 'PDF-1': '<id>' }`.
+   * Model code → task type ID overrides or additions, merged over `DEFAULT_MODELS` (and, on production,
+   * `PRODUCTION_MODEL_OVERRIDES`). Use it when your deployment's IDs differ, e.g. `{ 'PDF-1': '<id>' }`.
    */
   models?: Record<string, string | number>;
 }
@@ -107,7 +107,7 @@ export class AuthentaClient {
     this.jobs = new JobsResource(http);
     this.uploads = new UploadsResource(fetchImpl, uploadTimeoutMs);
     this.artifacts = new ArtifactsResource(fetchImpl, uploadTimeoutMs);
-    this.modelTable = buildModelTable(options.models);
+    this.modelTable = buildModelTable(options.models, this.baseUrl);
     this.workflow = new Workflow(this.jobs, this.uploads, this.modelTable);
   }
 

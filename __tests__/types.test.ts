@@ -12,6 +12,9 @@ import {
   type JobDetail,
   type JobStatus,
   type ListJobsParams,
+  type ResultTag,
+  type ScoredResult,
+  type TagBoundaries,
 } from '../src';
 import * as sdk from '../src';
 
@@ -48,6 +51,18 @@ describe('public types', () => {
     expect(fake).toBe(true);
   });
 
+  it('narrows results to ScoredResult', () => {
+    const job: Job = { id: '1', tenantId: 't', taskTypeId: '1', status: 'completed', cost: 1, createdAt: '', updatedAt: '', result: { isFake: false, tag: 'likely_real' } };
+    const result = job.result as ScoredResult;
+    const tags: ResultTag[] = ['real', 'likely_real', 'likely_fake', 'fake', 'some_future_tag'];
+    const boundaries: TagBoundaries = { real: 30, likelyReal: 60, likelyFake: 70 };
+    // @ts-expect-error tag boundaries are numbers
+    const badBoundaries: TagBoundaries = { real: '30', likelyReal: 60, likelyFake: 70 };
+    expect(tags).toContain(result.tag);
+    expect(result.modelVersion).toBeUndefined();
+    expect([boundaries, badBoundaries]).toHaveLength(2);
+  });
+
   it('returns job details from analyze', () => {
     type Check = AnalyzeResult['job'] extends JobDetail ? true : false;
     const ok: Check = true;
@@ -65,7 +80,6 @@ describe('public types', () => {
       'FL-1': '7',
       'FI-1': '8',
       'FE-1': '9',
-      'AS-1': '10',
       'ED-1': '11',
       'PDF-1': '12',
     });

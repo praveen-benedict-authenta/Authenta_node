@@ -79,7 +79,6 @@ Choose a model with `model`. It decides what Authenta checks in your file.
 | `DF-1` | Face swap (deepfake) video | mp4, mov, webm |
 | `ED-1` | Deepfakes in eKYC videos | mp4, mov, webm |
 | `AF-1` | AI-generated audio | mp3, wav, m4a |
-| `AS-1` | Audio splitting (voice and background) | mp3, wav, m4a |
 | `PDF-1` | Tampered PDF documents | pdf |
 
 The SDK sets the correct file type for the model automatically. A file the model doesn't accept is rejected before anything is uploaded or charged:
@@ -88,6 +87,8 @@ The SDK sets the correct file type for the model automatically. A file the model
 await client.process('./clip.mp4', { model: 'AC-1' });
 // ValidationError: Model AC-1 (slot "original") does not accept "clip.mp4". Accepted file types: jpg, jpeg, png
 ```
+
+`PDF-1` runs task type `13` on production (`https://platform.authenta.ai`, the default `baseUrl`) and `12` on every other deployment. The SDK picks the right one from `baseUrl`, so the same code works on both.
 
 If your Authenta account manager gives you a different model configuration, pass it once when creating the client:
 
@@ -197,6 +198,36 @@ const result = await client.getResult(job);
 It returns the model's full result as JSON. The fields depend on the model, so inspect the result for the model you use. `getResult()` throws `ValidationError` with `code: 'RESULT_NOT_AVAILABLE'` when there's no result, for example for a `failed` job.
 
 A short summary is also available directly on the job as `job.result`.
+
+### Tiered verdicts
+
+For models that produce a single score, `job.result` includes a `tag` (`real`, `likely_real`, `likely_fake` or `fake`), the `tagBoundaries` used to compute it, and the `modelVersion`. Read them from `job.result` (returned by `process()` and `jobs.get()`). `getResult()` returns the full `result.json` file, which may not include them.
+
+```ts
+import type { ScoredResult } from '@authentadev/node';
+
+const result = job.result as ScoredResult;
+
+switch (result.tag) {
+  case 'real':
+  case 'likely_real':
+    accept(job);
+    break;
+  case 'likely_fake':
+    review(job);
+    break;
+  case 'fake':
+    reject(job);
+    break;
+  default:
+    // Jobs completed before tagging was introduced have no tag
+    result.isFake ? review(job) : accept(job);
+}
+
+audit(job.id, result.tag, result.modelVersion);
+```
+
+All of these fields are optional. Boundaries can differ between models and change over time, so read them from `tagBoundaries` instead of hard-coding them. Store `modelVersion` with each decision, and if you use your own score cutoffs, check them again when it changes.
 
 ### Files produced by a job
 
