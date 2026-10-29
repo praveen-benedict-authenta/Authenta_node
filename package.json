@@ -1,6 +1,6 @@
 {
   "name": "@authentadev/node",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Official Node.js SDK for Authenta: detect AI-generated, deepfake and tampered images, video, audio and PDFs.",
   "license": "MIT",
   "author": "Authenta",
